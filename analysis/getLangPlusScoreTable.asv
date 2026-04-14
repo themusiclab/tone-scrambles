@@ -1,0 +1,32 @@
+function tbl = getLangPlusScoreTable
+nativeLangTblOrig = readtable("../results/nativeLanguage.csv")
+nativeLangTblNew = readtable("../results-new/nativeLanguage.csv")
+nativeLangTbl = [nativeLangTblOrig; nativeLangTblNew];
+
+
+
+nativeLangTblNew = readtable("../results-new/nativeLanguage.csv")
+nativeLangTbl = [nativeLangTblOrig; nativeLangTblNew];
+user_idNativeLang = nativeLangTbl.user_id;
+nativeLang = nativeLangTbl.nativeLang;
+
+tmp = readtable("../results/p_matOrig.csv");
+task3v4Orig = tmp.task3v4;
+user_id3v4Orig = tmp.user_id;
+
+tmp = readtable("../results-new/p_matNew.csv");
+task3v4New = tmp.task3v4;
+user_id3v4New = tmp.user_id;
+
+task3v4 = [task3v4Orig;task3v4New];
+user_id3v4 = [user_id3v4Orig;user_id3v4New];
+
+user_id = intersect(user_id3v4,user_idNativeLang);
+
+whichOnes = ismenber(user_id3v4,user_id);
+task3v4 = task3v4(whichOnes);
+whichOnes = ismenber(user_idNativeLang,user_id);
+nativeLang = nativeLang(whichOnes);
+
+tbl = table()
+end

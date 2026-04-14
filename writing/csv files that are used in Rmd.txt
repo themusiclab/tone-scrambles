@@ -1,0 +1,18 @@
+All of the following files should exist in ../analysis.  
+They get created by the matlab function, getAllDataForRMarkdown.m (also in ../analysis)
+
+allTaskHistsAllData.csv
+allTaskHistsNew.csv
+allTaskHistsOrig.csv
+allTasksIndividualSubjsAllData.csv
+country20Histograms.csv
+dataFor20CountryTable.csv
+dataFor20NativeLangTable.csv
+dipTestPValsAllTasksAllData.csv
+dipTestPValsYrsLessons.csv
+heatMapCounts.csv
+languageClassHists.csv
+NativeLang20Histograms.csv
+nativeLangPlusTask3v4.csv
+noLessonsCounts.csv
+yrsLessonsHists.csv

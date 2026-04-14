@@ -1,0 +1,50 @@
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+ls()
+headphones
+headphoneScore
+write.csv(headphones,"headphonesNew.csv",row.names=TRUE,na = "");
+write.csv(headphones,"headphonesNew.csv",row.names=FALSE,na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results/clean_data.rds")
+ls()
+write.csv(musicLessons,'musicLessonsNew',row.names = FALSE,na="")
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+write.csv(musicLessons,'musicLessonsNew.csv',row.names = TRUE,na="")
+write.csv(yrsLessons,'yrsLessonsNew.csv',row.names = TRUE,na="")
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+write.csv(yrsLessons,'yrsLessonsNew.csv',row.names = TRUE,na="")
+write.csv(yrsLessons,'yrsLessonsNew.csv',row.names = FALSE,na="")
+write.csv(musicLessons,'musicLessonsNew.csv',row.names = FALSE,na="")
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+ls()
+write.csv(lang,'nativeLanguage.csv',row.names = TRUE, na = "");
+cd ..
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+write.csv(lang,'nativeLanguage.csv',row.names = FALSE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results/clean_data.rds")
+write.csv(lang,'nativeLanguage.csv',row.names = TRUE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+write.csv(lang,'nativeLanguage.csv',row.names = TRUE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+write.csv(lang,'nativeLanguage.csv',row.names = FALSE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+ls()
+write.csv(perfectPitch,'perfectPitch.csv',row.names = TRUE, na = "");
+write.csv(musicSkill,'musicSkill.csv',row.names = TRUE, na = "");
+write.csv(lessonsPeers,'lessonsPeers.csv',row.names = TRUE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+ls()
+write.csv(country,'countryNew.csv',row.names = TRUE, na = "");
+write.csv(cond_order,'coondOrderNew.csv',row.names = TRUE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+ls
+ls()
+write.csv(country,'countryNew.csv',row.names = TRUE, na = "");
+write.csv(country,'countryNew.csv',row.names = FALSE, na = "");
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2025-10-7/results-new/clean_data_2022-04-04_2025-02-14.rds")
+write.csv(perfectPitch,'perfectPitch.csv',row.names=FALSE,na="")
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2026-1-10/results-new/clean_data_2022-04-04_2025-02-14.rds")
+gewtwd()
+whos
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2026-1-10/results-new/clean_data_2022-04-04_2025-02-14.rds")
+objects()
+load("/Users/chchubb/Library/CloudStorage/Dropbox/Sebastian/Music lab/paper/scram-2026-4-3/results-new/clean_data_2022-04-04_2025-02-14.rds")

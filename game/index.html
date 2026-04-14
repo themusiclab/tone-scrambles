@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width">
+
+  <title>Tone scramble experiment</title>
+
+  <link href="lib/jsPsych/css/jspsych.css" rel="stylesheet" type="text/css">
+  </link>
+
+  <!-- Button scaling based on viewport size -->
+  <style>
+    .imgbutton {
+      width: 30vw;
+      max-width: 25vh;
+      height: auto;
+    }
+  </style>
+</head>
+
+<body style="margin: 0">
+
+  <!-- Div for the p5js canvas, separate div for the jsPsych display -->
+  <div id="p5js-target" style="margin: 0 auto;"></div>
+  <div id="jspsych-target"></div>
+
+  <!-- Functions for data mgmt, math, and sound generation -->
+  <script src="lib/data_mgmt.js" type="text/javascript"></script>
+  <script src="lib/math_helpers.js" type="text/javascript"></script>
+  <script src="lib/sound_functions.js" type="text/javascript"></script>
+  <script src="lib/reference_data.js" type="text/javascript"></script>
+
+  <!-- Function to check if user on mobile (sets 'mobile' variable) -->
+  <script src="lib/check_mobile.js" type="text/javascript"></script>
+
+  <!-- jsPsych plug-ins -->
+  <script src="lib/jsPsych/jspsych.js"></script>
+  <script src="lib/jsPsych/plugins/jspsych-html-keyboard-response.js"></script>
+  <script src="lib/jsPsych/plugins/jspsych-html-button-response.js"></script>
+  <script src="lib/jsPsych/plugins/jspsych-image-keyboard-response.js"></script>
+  <script src="lib/jsPsych/plugins/jspsych-image-button-response.js"></script>
+  <script src="lib/jsPsych/plugins/jspsych-video-button-response.js"></script>
+
+  <!-- p5js library and functions -->
+  <script src="lib/p5js/p5.js"></script>
+  <script src="lib/game_hud.js"></script>
+
+  <!-- Main -->
+  <script>
+    // Create timeline
+    var timeline = [];
+
+    
+    // Create array to store data for each trial as a JSON object
+    var trial_data = [];
+
+    
+    // Randomly assign the "wild card" condition (7 possible choices)
+    // 1: C/C# (excluded due to tonic)
+    // 2: C#/D
+    // 3: D/D#
+    // 4: Eb/E (3-task, standard, already included)
+    // 5: E/F
+    // 6: F/F#
+    // 7: F#/G (excluded due to dominant)
+    // 8: G/G# (excluded due to dominant)
+    // 9: Ab/A
+    // 10: A/Bb
+    // 11: Bb/B
+    // 12: B/C (excluded due to tonic)
+    var wild_card = jsPsych.randomization.sampleWithoutReplacement([2,3,5,6,9,10,11],1)[0];
+    
+      
+    // Randomize condition order (this variable serves more as an index of which condition we are on, rather than the specific task)
+    var cond_order = randperm(3);
+    // 0: 3-task, 2-interval same-different
+    // 1: 3-task, standard
+    // 2: wild card
+    
+      
+    // Assign task to each condition
+    var task = [];
+    task[cond_order.indexOf(0)] = 0; // 3-task, 2-interval same-different
+    task[cond_order.indexOf(1)] = 4; // 3-task, standard
+    task[cond_order.indexOf(2)] = wild_card; // wild card task
+
+    
+    // Number of trials
+    var ntrials = 20; // Should be divisible by 2
+    var ntrials_sd = 16; // Should be divisible by 4
+
+    
+    // Random ordering of major/minor across trials, across blocks
+    // "trials_type_ref" specifies reference (first interval) in same-different conditions (nan for other conditions)
+    var trials_type = new Array(4);
+    var trials_type_ref = new Array(4);
+    for (let k = 0; k < 4; k++) {
+
+      // If same-different condition
+      if (k == 0) {
+        let v_t = ones(ntrials_sd / 2).concat(sv_prod(2, ones(ntrials_sd / 2)));
+        let v_r = sv_sum(1, mod_vec(consec(ntrials_sd), 2));
+        let i = randperm(ntrials_sd);
+        trials_type[k] = v_i(v_t, i);
+        trials_type_ref[k] = v_i(v_r, i);
+      }
+
+      // Else, for other conditions
+      else {
+        trials_type[k] = sv_sum(1, mod_vec(randperm(ntrials), 2));
+        trials_type_ref[k] = sv_prod(NaN, ones(ntrials));
+      }
+    }
+    var practice_type;
+    var practice_type_ref;
+
+    
+    // Track current block and trial
+    var cur_block = -1;
+    var cur_trial = 0;
+    var cur_trial_practice = 0;
+
+    
+    // Tracks whether the participant is ready to proceed past the examples
+    var bool_practice = false;
+      
+      
+    // Determines whether type 1 / type 2 sounds are assigned to the left or right button
+    var switchButton = jsPsych.randomization.sampleWithReplacement([true,false],3);
+      
+    
+    // Other global variables
+    var cur_type = NaN; // Track current scramble type (easier than constantly indexing trials_type)
+    var cur_ref = NaN; // Track current reference scramble type (1 or 2 is same-diff, NaN otherwise)
+    var last_correct = false; // Track correctness of latest response
+    var total_correct = 0; // Track total number of correct responses
+    var trial_obj; // Track the parameters of the latest stimulus
+    var correct_answer; // Correct answer on each trial
+      
+    // Set of emoji responses
+    var emoji_1 = ['img/same.png', 'img/F.png', 'img/F.png'];
+    var emoji_2 = ['img/different.png', 'img/J.png', 'img/J.png'];
+    var blank_img = 'img/white_bg.png'; // placeholder during examples
+  
+    if (mobile){
+        // check if OS is desktop or mobile
+        emoji_1[1] = 'img/1.png';
+        emoji_1[2] = 'img/1.png';
+        emoji_2[1] = 'img/2.png';
+        emoji_2[2] = 'img/2.png';
+    }
+        
+
+    if (switchButton[cond_order.indexOf(0)]==true){
+        // swap emoji buttons for same-different task if switchButton is true (this is not needed for the other tasks because their type 1/2 labels are arbitrary)
+        emoji_1[0] = 'img/different.png';
+        emoji_2[0] = 'img/same.png';
+    }
+
+    
+    // New welcome screen
+    var welcome = {
+      type: "html-button-response",
+      stimulus: "<p><b>Are you a super-listener?</b></p><p>In this game, your challenge is to categorize sounds. This game is hard for most people, but easy for rare super-listeners – let’s find out if that includes you!</p><p>There will be 3 levels. On one level, you will judge whether 2 sounds contain the same set of notes. On the other levels, you will compare sounds that contain different notes and match them to their respective category.</p><p>Gameplay involves typing <b>F</b> or <b>J</b> on your keyboard (for desktop players), or clicking the <b>1</b> or <b>2</b> buttons on the screen (for mobile players). There will be a demo at the start of each level for you to practice.</p><p>You will score points for each correct answer, and you will score more points if you go fast. But beware -- if you provide the wrong answer too quickly, you’ll lose more points too. Try to get the highest score and longest streak!</p>",
+      choices: ["I'm ready!"]
+    }
+    timeline.push(welcome);
+
+    
+    // Ask if played the game before
+    var played_before = "No";
+    var played_before_screen = {
+      type: "html-button-response",
+      stimulus: "<p>Have you played this game before? It's OK if you have!</p>",
+      choices: ['Yes', 'No'],
+      on_finish: function(data) {
+        played_before = data.button_pressed == 0 ? "Yes" : "No";
+      }
+    };
+    timeline.push(played_before_screen);
+
+    
+    // Enter previous scores if played before
+    var previous_super = "NA";
+    var previous_super_screen = {
+      type: "html-button-response",
+      stimulus: '<p>When you played last time, did you achieve super-listener status?</p>',
+      choices: ['Yes', 'No'],
+      on_finish: function(data) {
+        previous_super = data.button_pressed == 0 ? "Yes" : "No";
+      }
+    };
+
+    
+    // if this section (if_node) returns true, then the previous_scores screen above is presented
+    var previous_super_if_node = {
+      timeline: [previous_super_screen],
+      conditional_function: function() {
+        return (played_before == "Yes");
+      }
+    }
+    timeline.push(previous_super_if_node);
+
+    
+    // Before starting the first trial, participants are shown this screen which says which condition they are about to play
+    var start_screen = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "Error! This text should not appear",
+      choices: mobile ? ["Hear the examples"] : ["space"],
+      post_trial_gap: 600,
+      on_start: function(start_screen) {
+        // Update block number and reset trial number
+        // Note that bool_practice == false if entering the example loop from a past block
+        // bool practice == true if entering because more examples requested
+        if (!bool_practice) {
+          cur_block++;
+          cur_trial = 0;
+          
+          // Reset the HUD, with specs for current condition
+          if (cond_order[cur_block] == 0) {
+              reset_block(ntrials_sd);
+          } else {
+              reset_block(ntrials);
+          }
+        }
+        
+        // Turn practice mode on and reset practice trial counter
+        bool_practice = true;
+        cur_trial_practice = 0;
+        practice_type = sv_sum(1, mod_vec(randperm(4), 2));
+        practice_type_ref = (cond_order[cur_block] == 0) ? sv_sum(1, mod_vec(randperm(4), 2)) : sv_prod(NaN, consec(4));
+        
+        // Description of current block
+        start_screen.stimulus = ("<p><b>You are now entering Level ").concat((cur_block + 1).toString()).concat(" of 3.</b></p>");
+        if (cond_order[cur_block] == 0) {
+          start_screen.stimulus = start_screen.stimulus.concat("<p>On each trial, you will hear <b>two</b> sequences of tones separated by a short gap. Your job is to determine whether the two sequences contain the same notes or different notes.</p>");
+        } else {
+          start_screen.stimulus = start_screen.stimulus.concat("<p>On each trial, you will hear a sequence of tones. There are two kinds of sequences, and they contain different notes. Your job is to correctly label each sequence.</p>");
+        }
+
+        // Add keyboard instructions if desktop
+        if (mobile) {
+          start_screen.stimulus = start_screen.stimulus.concat("<p>Let's start with some examples.</p>");
+        } else {
+          start_screen.stimulus = start_screen.stimulus.concat("<p>Press space bar to hear some examples.</p>");
+        }
+      }
+    }
+
+    
+    // Example of Type 1 stimulus
+    var example1 = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "",
+      stimulus_width: NaN,
+      prompt: mobile ? "<p>When you hear this kind of sound, <b>press the button above.</b> Try it now.</p>" : "<p>When you hear this kind of sound, <b>press F.</b> Try it now.</p>",
+      choices: [],
+      post_trial_gap: 300,
+      on_start: function(example1) {
+        // Set stimulus width (match button sizes)
+        example1.stimulus_width = Math.floor(Math.min(0.3 * windowWidth, 0.3 * windowHeight));
+
+        // Set up the buttons to be shown if on mobile
+        if (mobile) {
+          example1.choices = [emoji_1[cond_order[cur_block]],blank_img];
+          example1.button_html = ['<img src="%choice%" class="imgbutton"/>','<img src="%choice%" class="imgbutton"/>'];
+        }
+
+        // If on desktop, add some extra text and show accompanying images
+        else {
+          example1.choices = ['f'];
+          example1.stimulus = example1.stimulus.concat("<figure style='display: inline-block'><img src='").concat(emoji_1[cond_order[cur_block]]).concat("' class='imgbutton'/><figcaption><b> </b></figcaption></figure><figure style='display: inline-block'><img src='").concat(blank_img).concat("' class='imgbutton'/><figcaption><b> </b></figcaption></figure>");
+        }
+
+        // Set the scramble types (reference is randomized, if applies); example1==type1 if !switchButton
+        cur_type = switchButton[cur_block] ? 2 : 1;
+        cur_ref = (cond_order[cur_block] == 0) ? Math.round(Math.random()) + 1 : NaN;
+
+        // Play example
+        trial_obj = play_scramble(cur_type, task[cur_block], cur_ref);
+      },
+      on_finish: function() {
+        // Stop scramble if still playing
+        stop_scramble();
+
+        // Append the trial parameters and results to the data array
+        trial_data = trial_data.concat({
+          condition: task[cur_block],
+          cur_trial: "Example",
+          correct_answer: NaN,
+          response: NaN,
+          scramble_type: cur_type,
+          reference_type: cur_ref,
+          seq: trial_obj.seq,
+          freqs: trial_obj.freqs,
+          f_I: trial_obj.f_I,
+          resp_start_time: NaN,
+          resp_time: NaN,
+          score: new_score,
+          streak: streak,
+          emoji_1: emoji_1[cond_order[cur_block]],
+          emoji_2: emoji_2[cond_order[cur_block]],
+          played_before: played_before,
+          previous_super: previous_super,
+          switchButton: switchButton[cur_block]
+        });
+      }
+    }
+
+    
+    // Example of Type 2 stimulus
+    var example2 = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "",
+      stimulus_width: NaN,
+      prompt: mobile ? "<p>When you hear this kind of sound, <b>press the button above.</b> Try it now.</p>" : "<p>When you hear this kind of sound, <b>press J.</b> Try it now.</p>",
+      choices: [],
+      post_trial_gap: 300,
+      on_start: function(example2) {
+        // Set stimulus width (match button sizes)
+        example2.stimulus_width = Math.floor(Math.min(0.3 * windowWidth, 0.3 * windowHeight));
+
+        // Set up the buttons to be shown if on mobile
+        if (mobile) {
+          example2.choices = [blank_img,emoji_2[cond_order[cur_block]]];
+          example2.button_html = ['<img src="%choice%" class="imgbutton"/>','<img src="%choice%" class="imgbutton"/>'];
+        }
+
+        // If on desktop, add some extra text and show accompanying images
+        else {
+          example2.choices = ['j'];
+          example2.stimulus = example2.stimulus.concat("<figure style='display: inline-block'><img src='").concat(blank_img).concat("' class='imgbutton'/><figcaption><b> </b></figcaption></figure><figure style='display: inline-block'><img src='").concat(emoji_2[cond_order[cur_block]]).concat("' class='imgbutton'/><figcaption><b> </b></figcaption></figure>");  
+        }
+
+        // Set the scramble types (reference is randomized, if applies); example2==type2 if !switchButton
+        cur_type = switchButton[cur_block] ? 1 : 2;
+        cur_ref = (cond_order[cur_block] == 0) ? Math.round(Math.random()) + 1 : NaN;
+
+        // Play example
+        trial_obj = play_scramble(cur_type, task[cur_block], cur_ref);
+      },
+      on_finish: function() {
+        // Stop scramble if still playing
+        stop_scramble();
+
+        // Append the trial parameters and results to the data array
+        trial_data = trial_data.concat({
+          condition: task[cur_block],
+          cur_trial: "Example",
+          correct_answer: NaN,
+          response: NaN,
+          scramble_type: cur_type,
+          reference_type: cur_ref,
+          seq: trial_obj.seq,
+          freqs: trial_obj.freqs,
+          f_I: trial_obj.f_I,
+          resp_start_time: NaN,
+          resp_time: NaN,
+          score: new_score,
+          streak: streak,
+          emoji_1: emoji_1[cond_order[cur_block]],
+          emoji_2: emoji_2[cond_order[cur_block]],
+          played_before: played_before,
+          previous_super: previous_super,
+          switchButton: switchButton[cur_block]
+        });
+      }
+    }
+
+    
+    // Shown before beginning the practice trials
+    var practice_warn = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "<p><b>Now let's practice!</b></p><p>You will get four practice trials. Remember to press the button that matches the type of sound you hear.</p>",
+      choices: mobile ? ["Begin"] : ["space"],
+      post_trial_gap: 600,
+      on_start: function(practice_warn) {
+        // Add keyboard instructions if desktop
+        if (!mobile) {
+          practice_warn.stimulus = practice_warn.stimulus.concat("<p>Press space bar to begin.</p>");
+        }
+      }
+    }
+    
+    
+    // Playback screen
+    var playback = {
+      type: "html-keyboard-response",
+      stimulus: "",
+      choices: ['q'],
+      trial_duration: NaN,
+      on_start: function(playback) {
+        // Set trial duration based on condition
+        if (cond_order[cur_block] == 0) {
+          playback.trial_duration = (65 * 12 * 2 + 300);
+        } else {
+          playback.trial_duration = (65 * 12);
+        }
+
+        // Get the scramble types
+        if (bool_practice) {
+          cur_type = practice_type[cur_trial_practice];
+          cur_ref  = practice_type_ref[cur_trial_practice];
+        } else {
+          cur_type = trials_type[cond_order[cur_block]][cur_trial];
+          cur_ref  = trials_type_ref[cond_order[cur_block]][cur_trial];
+        }
+
+        // Play the specified scramble and hold onto its specs
+        trial_obj = play_scramble(cur_type, task[cur_block], cur_ref);
+
+        // Iterate trial number
+        if (bool_practice) {
+          cur_trial_practice++;
+        } else {
+          cur_trial++;
+        }
+      },
+      on_finish: function(data) {
+        if (jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press) == 'q') {
+          // NaN because no answer provided on this trial
+          trial_resp = NaN;
+
+          // Skip the current timeline (i.e., go to next level)
+          jsPsych.endCurrentTimeline();
+        }
+      }
+    }
+
+    
+    // Trial screen
+    var trial = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "Error! This text should not appear to the user!",
+      choices: ['', ''],
+      on_start: function(trial) {
+        // Set up text for this trial
+        let tag = "<p>Which kind was it?</p>";
+        if (bool_practice) {
+          trial.stimulus = ("<p><b>Practice ").concat(cur_trial_practice.toString()).concat(" of 4</b></p>").concat(tag);
+        } else {
+          trial.stimulus = ("<p><b>Trial ").concat(cur_trial.toString()).concat(" of ").concat(cond_order[cur_block] == 0 ? ntrials_sd.toString() : ntrials.toString()).concat("</b></p>").concat(tag);
+        }
+        
+        // Set up the buttons to be shown if on mobile
+        if (mobile) {
+          trial.choices = [emoji_1[cond_order[cur_block]], emoji_2[cond_order[cur_block]]];
+          trial.button_html = ['<img src="%choice%" class="imgbutton"/>', '<img src="%choice%" class="imgbutton"/>'];
+        }
+
+        // If on desktop, add some extra text and show accompanying images
+        else {
+          trial.choices = ['f', 'j'];
+          trial.stimulus = trial.stimulus.concat("<figure style='display: inline-block'><img src='").concat(emoji_1[cond_order[cur_block]]).concat("' class='imgbutton'/><figcaption><b>F</b></figcaption></figure><figure style='display: inline-block'><img src='").concat(emoji_2[cond_order[cur_block]]).concat("' class='imgbutton'/><figcaption><b>J</b></figcaption></figure>");
+        }
+
+        // Only time the trials during the testing phase
+        if (!bool_practice) {
+          start_trial();
+        }
+      },
+      on_finish: function(data) {
+        // Check correctness to provide feedback
+        let trial_resp = [];
+        if (mobile)
+          trial_resp = parseInt(data.button_pressed) + 1;
+        else {
+          // Convert key press to 1 or 2
+          trial_resp = (jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press) == 'f') ? 1 : 2;
+        }
+          
+        // Update globals so feedback screen is accurate
+        if(switchButton[cur_block]){
+            correct_answer = cur_type==1? 2 : 1; // correct_answer is the opposite if switchButton is true
+        } else{
+            correct_answer = cur_type;            
+        }
+          
+        if (trial_resp == correct_answer) {
+            last_correct = true;
+            total_correct++;
+        } else {
+            last_correct = false;
+        }
+
+        if (bool_practice) {
+          // Append the trial parameters and results to the data array
+          trial_data = trial_data.concat({
+            condition: task[cur_block],
+            cur_trial: "Practice",
+            correct_answer: correct_answer,
+            response: trial_resp,
+            scramble_type: cur_type,
+            reference_type: cur_ref,
+            seq: trial_obj.seq,
+            freqs: trial_obj.freqs,
+            f_I: trial_obj.f_I,
+            resp_start_time: NaN,
+            resp_time: NaN,
+            score: NaN,
+            streak: NaN,
+            emoji_1: emoji_1[cond_order[cur_block]],
+            emoji_2: emoji_2[cond_order[cur_block]],
+            played_before: played_before,
+            previous_super: previous_super,
+            switchButton: switchButton[cur_block]
+          });
+        } else {
+          // It might be more appropriate to check correctness WITHIN the end_trial function as to not delay the response time calculation
+          end_trial(last_correct);
+
+          // Append the trial parameters and results to the data array
+          trial_data = trial_data.concat({
+            condition: task[cur_block],
+            cur_trial: cur_trial,
+            correct_answer: correct_answer,
+            response: trial_resp,
+            scramble_type: cur_type,
+            reference_type: cur_ref,
+            seq: trial_obj.seq,
+            freqs: trial_obj.freqs,
+            f_I: trial_obj.f_I,
+            resp_start_time: timer_start,
+            resp_time: rtime,
+            score: new_score,
+            streak: streak,
+            emoji_1: emoji_1[cond_order[cur_block]],
+            emoji_2: emoji_2[cond_order[cur_block]],
+            played_before: played_before,
+            previous_super: previous_super,
+            switchButton: switchButton[cur_block]
+          });
+        }
+      }
+    }
+
+    
+    // Feedback screen
+    var feedback = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "Error! This text should not appear!",
+      choices: [],
+      trial_duration: 700,
+      post_trial_gap: 150,
+      on_start: function(feedback) {
+        // Stop scramble if it's still going (should be redundant due to playback trial duration)
+        stop_scramble();
+        if (last_correct) {
+          feedback.stimulus = "<p style='color:green'><b>CORRECT</b></p>"
+        } else {
+          feedback.stimulus = "<p style='color:red'><b>INCORRECT</b></p>"
+        }
+      }
+    }
+    
+    
+    // Example wrap-up
+    var intro_wrap = {
+      type: mobile ? "html-button-response" : "html-keyboard-response",
+      stimulus: "<p><b>Ready?</b></p>",
+      choices: mobile ? ["Yes", "No"] : ["y", "n"],
+      post_trial_gap: 600,
+      on_start: function(intro_wrap) {
+        // Change prompt depending on mobile vs. desktop
+        if (!mobile) {
+          intro_wrap.stimulus = intro_wrap.stimulus.concat("<p>Press Y to begin testing. Or, press N to repeat the examples.</p>");
+        } else {
+          intro_wrap.stimulus = intro_wrap.stimulus.concat("<p>Press Yes to begin testing. Or, press No to repeat the examples.</p>");
+        }
+      },
+      on_finish: function(data) {
+        // Proceed if participant participant indicated readiness
+        let tmp = ["y", "n"];
+        let trial_resp = mobile ? tmp[data.button_pressed] : jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press);
+        if (trial_resp == "y") {
+          bool_practice = false;
+        } else {
+          bool_practice = true;
+        }
+      }
+    }
+
+    
+    // Practice block
+    var practice_timeline = {
+      timeline: [playback, trial, feedback],
+      repetitions: 4
+    }
+    
+    
+    // Intro loop
+    var intro_loop = {
+      timeline: [start_screen, example1, example2, example1, example2, practice_warn, practice_timeline, intro_wrap],
+      loop_function: function() {
+        return bool_practice;
+      }
+    }
+
+    
+    // Block timeline (playback-trial-feedback triples)
+    var block_timeline = {
+      timeline: [playback, trial, feedback],
+      repetitions: ntrials
+    }
+
+    
+    // Block timeline for same-diff (just different number of trials)
+    var block_timeline_sd = {
+      timeline: [playback, trial, feedback],
+      repetitions: ntrials_sd
+    }
+
+    
+    // Block end screen
+    var end_block = {
+      type: "html-button-response",
+      stimulus: "",
+      choices: ["Continue"],
+      on_start: function(end_block) {
+        end_block.stimulus = ("<p><b>Nice job! You completed Level ").concat(String(cur_block + 1)).concat(" of ").concat(String(cond_order.length)).concat(".</b></p> <p>Ready for the next level?</p>");
+      }
+    }
+
+    
+    // Set up the experiment
+    for (let k = 0; k < cond_order.length; k++) {
+      timeline.push(intro_loop);
+      if (cond_order[k] == 0) {
+        timeline.push(block_timeline_sd);
+      } else {
+        timeline.push(block_timeline);
+      }
+      if (k < cond_order.length - 1) {
+        timeline.push(end_block);
+      }
+    }
+
+    
+    // Thank you page
+    var thank_you = {
+      type: "html-keyboard-response",
+      stimulus: "<p><b>Here's how you did compared to other players!</b></p>",
+      choices: [],
+      on_start: function(thank_you) {
+        // Calculate percent correct
+        let p_corr = total_correct / (ntrials * 3 + ntrials_sd);
+
+        // Reset the bird postion and show their position on a histogram
+        reset_block(ntrials);
+        show_summary(cond_order);
+
+        // Adjust the text based on performance
+        thank_you.stimulus = thank_you.stimulus.concat("<p>The figures above summarize your performance during the game. Your performance indicates that you are...</p>");
+        if (p_corr > 0.75) {
+          thank_you.stimulus = thank_you.stimulus.concat("<p><b>A SUPER-LISTENER!</b></p>");
+        } else {
+          thank_you.stimulus = thank_you.stimulus.concat("<p><b>NOT A SUPER-LISTENER.</b></p>");
+        }
+        thank_you.stimulus = thank_you.stimulus.concat("<p>Our rating is based on hundreds of listeners tested in a laboratory setting. If this result is different than you expected, don't worry! This is the first time we've done this test outside of the lab, and it may produce different results in an online setting. It's also possible that you were tired or distracted while playing. We don't know if scores on this test predict musical skill or enjoyment. If you'd like to try again to see if your score changes, please go ahead!</p>");
+      }
+    }
+    timeline.push(thank_you);
+
+    
+    // Execute experiment logic specified above
+    jsPsych.init({
+      timeline: timeline,
+      display_element: 'jspsych-target',
+      preload_images: emoji_1.concat(emoji_2).concat(blank_img)
+    });
+  </script>
+</body>
+
+</html>
